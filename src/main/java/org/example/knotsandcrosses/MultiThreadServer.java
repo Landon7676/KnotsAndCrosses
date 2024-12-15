@@ -2,11 +2,12 @@ package org.example.knotsandcrosses;
 
 import java.io.*;
 import java.net.*;
+import java.util.concurrent.atomic.AtomicInteger;
 
 public class MultiThreadServer {
   private static char[][] board = new char[3][3];
   private static int turn = 0; // 0 for X, 1 for O
-  private static int clientCount = 0;  // Track number of connected clients
+  private static AtomicInteger clientCount = new AtomicInteger(0);  // Atomic counter for connected clients
   private static final int MAX_CLIENTS = 2;  // Maximum allowed clients
 
   public static void main(String[] args) throws IOException {
@@ -15,6 +16,7 @@ public class MultiThreadServer {
 
       // Wait for first client (Player X)
       Socket playerX = acceptClient(serverSocket);
+      if (playerX == null) return;  // If no client was accepted, exit the server
       PrintWriter outX = new PrintWriter(playerX.getOutputStream(), true);
       BufferedReader inX = new BufferedReader(new InputStreamReader(playerX.getInputStream()));
       outX.println("ROLE:X");
@@ -22,6 +24,7 @@ public class MultiThreadServer {
 
       // Wait for second client (Player O)
       Socket playerO = acceptClient(serverSocket);
+      if (playerO == null) return;  // If no second client, exit the server
       PrintWriter outO = new PrintWriter(playerO.getOutputStream(), true);
       BufferedReader inO = new BufferedReader(new InputStreamReader(playerO.getInputStream()));
       outO.println("ROLE:O");
@@ -71,19 +74,21 @@ public class MultiThreadServer {
 
   // Accept a client if under MAX_CLIENTS, otherwise reject it
   private static Socket acceptClient(ServerSocket serverSocket) throws IOException {
-    Socket clientSocket;
-    if (clientCount < MAX_CLIENTS) {
-      clientSocket = serverSocket.accept();
-      clientCount++;
-      System.out.println("Client connected. Total clients: " + clientCount);
-      return clientSocket;
-    } else {
-      System.out.println("Maximum clients reached. Rejecting new client...");
-      clientSocket = serverSocket.accept();  // Accept the connection but immediately close it
-      rejectClient(clientSocket);
-      return null; // We don't actually use the rejected client
+    synchronized (clientCount) {
+      if (clientCount.get() >= MAX_CLIENTS) {
+        System.out.println("Maximum clients reached. Rejecting new client...");
+        Socket rejectedClient = serverSocket.accept();
+        rejectClient(rejectedClient);
+        return null;  // Return null but keep server alive
+      } else {
+        Socket clientSocket = serverSocket.accept();
+        clientCount.incrementAndGet();  // Atomically increment the client count
+        System.out.println("Client connected. Total clients: " + clientCount.get());
+        return clientSocket;
+      }
     }
   }
+
 
   // Method to reject a client connection
   private static void rejectClient(Socket clientSocket) {
