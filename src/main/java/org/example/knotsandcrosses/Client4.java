@@ -23,7 +23,7 @@ public class Client4 extends Application {
   private boolean myTurn;
   private char[][] board = new char[3][3];
   private Button[][] buttons = new Button[3][3];
-  private Label statusLabel = new Label("Connecting...");
+  private Label statusLabel = new Label("Cannot connect more than two players");
   private Label titleLabel = new Label("Knots and Crosses");
   private Label roleLabel = new Label("You are: Waiting on role... ");
 
